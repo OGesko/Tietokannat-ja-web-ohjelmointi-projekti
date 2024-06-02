@@ -22,3 +22,9 @@
 - printing data
 	-averages
 	-summaries
+
+### Now working
+- database connection
+- registering new users
+- login
+- logout
