@@ -31,7 +31,7 @@ from flask_login import (
 
 from app import create_app,db,login_manager,bcrypt
 from models import User, Account
-from forms import login_form,register_form
+from forms import login_form, register_form, create_account_form
 
 
 @login_manager.user_loader
@@ -43,7 +43,7 @@ app = create_app()
 @app.before_request
 def session_handler():
     session.permanent = True
-    app.permanent_session_lifetime = timedelta(minutes=1)
+    app.permanent_session_lifetime = timedelta(minutes=10)
 
 @app.route("/", methods=("GET", "POST"), strict_slashes=False)
 def index():
@@ -56,32 +56,22 @@ def login():
 
     if form.validate_on_submit():
         try:
-            print("Form submitted with username:", form.username.data)
             user = User.query.filter_by(username=form.username.data).first()
             if user:
-                print("User found:", user.username)
-                print("Stored password hash:", user.pwd)
-                print("Provided password:", form.pwd.data)
                 if check_password_hash(user.pwd, form.pwd.data):
-
-                    print("pass correct")
                     login_user(user)
-                    return redirect(url_for('index'))
+                    return redirect(url_for('personal'))
                 else:
-                    print("inv pass")
                     flash("Invalid Username or password!", "danger")
         except Exception as e:
             flash(e, "danger")
 
-    print("render auth.html")
     return render_template("auth.html",
         form=form,
         text="Login",
         title="Login",
         btn_action="Login"
         )
-
-
 
 # Register route
 @app.route("/register/", methods=("GET", "POST"), strict_slashes=False)
@@ -139,10 +129,23 @@ def personal():
     accounts = Account.query.filter_by(user_id=current_user.id).all()
     return render_template("personal.html", user=current_user, accounts=accounts)
 
-@app.route("/create_account")
+@app.route("/create_account", methods=("GET", "POST"))
 @login_required
 def create_account():
-    return render_template("personal.html", user="acc test")
+    form = create_account_form()
+    if form.validate_on_submit():
+        account = Account(
+            name=form.name.data,
+            balance=form.balance.data,
+            user_id=current_user.id  # Assign the account to the current user
+        )
+        db.session.add(account)
+        db.session.commit()
+        flash('Account created successfully!', 'success')
+        return redirect(url_for('personal'))
+    return render_template('create_account.html', form=form)
+
+
 
 #TEST routes
 @app.route("/test_db")

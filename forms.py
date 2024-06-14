@@ -6,8 +6,10 @@ from wtforms import (
     DateField,
     TextAreaField,
     ValidationError,
+    FloatField,
+    SubmitField
 )
-from wtforms.validators import InputRequired, Length, EqualTo, Email, Regexp ,Optional
+from wtforms.validators import InputRequired, Length, EqualTo, DataRequired, Regexp ,Optional
 from flask_wtf import FlaskForm
 from flask_login import current_user
 from models import User
@@ -41,3 +43,8 @@ class register_form(FlaskForm):
     def validate_username(self, username):
         if User.query.filter_by(username=username.data).first():
             raise ValidationError("Username already taken!")
+        
+class create_account_form(FlaskForm):
+    name = StringField('Account Name', validators=[DataRequired()])
+    balance = FloatField('Initial Balance', validators=[DataRequired()])
+    submit = SubmitField('Create Account')
