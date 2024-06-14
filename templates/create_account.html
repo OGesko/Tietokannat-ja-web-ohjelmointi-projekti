@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %} {{title}} {% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Create New Account</h1>
+    <form method="POST" action="{{ url_for('create_account') }}">
+        {{ form.hidden_tag() }}
+        <div class="mb-3">
+            <label for="name" class="form-label">Account Name</label>
+            {{ form.name(class="form-control") }}
+        </div>
+        <div class="mb-3">
+            <label for="balance" class="form-label">Initial Balance</label>
+            {{ form.balance(class="form-control") }}
+        </div>
+        <button type="submit" class="btn btn-primary">Create Account</button>
+    </form>
+</div>
+{% endblock %}
