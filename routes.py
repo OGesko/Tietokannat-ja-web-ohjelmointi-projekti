@@ -30,7 +30,7 @@ from flask_login import (
 )
 
 from app import create_app,db,login_manager,bcrypt
-from models import User
+from models import User, Account
 from forms import login_form,register_form
 
 
@@ -136,7 +136,13 @@ def logout():
 @app.route("/personal")
 @login_required
 def personal():
-    return render_template("personal.html")
+    accounts = Account.query.filter_by(user_id=current_user.id).all()
+    return render_template("personal.html", user=current_user, accounts=accounts)
+
+@app.route("/create_account")
+@login_required
+def create_account():
+    return render_template("personal.html", user="acc test")
 
 #TEST routes
 @app.route("/test_db")

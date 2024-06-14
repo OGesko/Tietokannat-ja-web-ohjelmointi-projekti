@@ -1,2 +1,15 @@
-<p>Web app</p>
-<a href="/login">to login form</a>
+{% extends "base.html" %}
+
+{% block title %} {{ title }} {% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-12 text-center">
+            <h1>Welcome to My App</h1>
+            <p class="lead">Placeholder for app description</p>
+            <a href="{{ url_for('login') }}" class="btn btn-primary">Login</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
