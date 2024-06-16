@@ -61,7 +61,13 @@ class AddExpenseForm(FlaskForm):
     submit = SubmitField('Add Expense')
 
 class FilterDataForm(FlaskForm):
-    start_date = DateField('Start Date', format='%Y-%m-%d')
-    end_date = DateField('End Date', format='%Y-%m-%d')
-    filter_category = SelectField('Category', coerce=int)
-    submit = SubmitField('Filter')
+    start_date = DateField('Start Date', format='%Y-%m-%d', validators=[DataRequired()])
+    end_date = DateField('End Date', format='%Y-%m-%d', validators=[DataRequired()])
+    filter_category = SelectField('Category', validators=[DataRequired()])
+    submit = SubmitField('Search')
+
+    def __init__(self, *args, **kwargs):
+        super(FilterDataForm, self).__init__(*args, **kwargs)
+        sql = text("SELECT id, name FROM category")
+        categories = db.session.execute(sql).fetchall()
+        self.filter_category.choices = [(c.id, c.name) for c in categories]

@@ -46,7 +46,7 @@
     <!-- Filter Data Form -->
     <div class="mb-4">
         <h2>Filter Data</h2>
-        <form method="GET" action="{{ url_for('account', account_id=account.id) }}">
+        <form method="POST" action="{{ url_for('account', account_id=account.id) }}">
             <div class="mb-3">
                 <label for="start_date" class="form-label">Start Date</label>
                 {{ filter_form.start_date(class="form-control") }}
@@ -62,20 +62,53 @@
             <button type="submit" class="btn btn-primary">Filter</button>
         </form>
     </div>
-
     <!-- Display Filtered Data -->
-    {% if filtered_expenses %}
     <div class="mb-4">
-        <h2>Filtered Expenses</h2>
-        <ul class="list-group">
-            {% for expense in filtered_expenses %}
-            <li class="list-group-item">
-                {{ expense.description }} - ${{ expense.amount }} on {{ expense.timestamp.strftime('%Y-%m-%d') }}
-                (Category: {{ expense.category.name }})
-            </li>
-            {% endfor %}
-        </ul>
+        <h2>Searched Transactions</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Description</th>
+                    <th>Amount</th>
+                    <th>Date</th>
+                    <th>Category</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for transaction in filtered_transactions %}
+                    <tr>
+                        <td>{{ transaction.description }}</td>
+                        <td>{{ transaction.amount }}</td>
+                        <td>{{ transaction.timestamp }}</td>
+                        <td>{{ transaction.name }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
-    {% endif %}
+    <!-- Display all transactions -->
+    <div class="mb-4">
+        <h2>All Transactions</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Description</th>
+                    <th>Amount</th>
+                    <th>Date</th>
+                    <th>Category</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for transaction in all_transactions %}
+                    <tr>
+                        <td>{{ transaction.description }}</td>
+                        <td>{{ transaction.amount }}</td>
+                        <td>{{ transaction.timestamp }}</td>
+                        <td>{{ transaction.name }}</td> 
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endblock %}

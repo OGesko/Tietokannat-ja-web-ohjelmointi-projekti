@@ -5,11 +5,12 @@ from flask_bcrypt import Bcrypt
 from flask_migrate import Migrate
 from os import getenv
 from dotenv import load_dotenv
+from flask_wtf import CSRFProtect
 
 load_dotenv()
 
 app = Flask(__name__)
-
+csrf = CSRFProtect(app)
 app.secret_key = getenv('SECRET_KEY')
 app.config['SQLALCHEMY_DATABASE_URI'] = getenv('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False

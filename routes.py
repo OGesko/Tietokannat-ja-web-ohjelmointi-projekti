@@ -1,5 +1,6 @@
 from flask import (
     Flask,
+    jsonify,
     render_template,
     redirect,
     flash,
@@ -205,15 +206,16 @@ def account(account_id):
         description = add_expense_form.description.data
         amount = float(add_expense_form.amount.data)
         category_name = add_expense_form.category.data
+        new_category = add_expense_form.new_category.data
         recurring = 'recurring' in add_expense_form
 
         category_sql = text('SELECT * FROM "category" WHERE name = :name')
         category_result = db.session.execute(category_sql, {"name": category_name})
         category = category_result.fetchone()
 
-        if not category:
+        if not category and new_category:
             insert_category_sql = text('INSERT INTO "category" (name) VALUES (:name) RETURNING id')
-            category_result = db.session.execute(insert_category_sql, {"name": category_name})
+            category_result = db.session.execute(insert_category_sql, {"name": new_category})
             db.session.commit()
             category = category_result.fetchone()
 
@@ -238,31 +240,57 @@ def account(account_id):
     transactions = transactions_result.fetchall()
     spent_this_month = sum(t.amount for t in transactions)
 
-    filtered_expenses = None
-    if request.method == "POST" and filter_form.validate_on_submit():
-        filter_category = filter_form.filter_category
-        filter_start_date = filter_form.start_date
-        filter_end_date = filter_form.end_date
+    sql_all_transactions = text('SELECT transaction.*, category.name FROM transaction LEFT JOIN transaction_category ON transaction.id = transaction_category.transaction_id LEFT JOIN category ON transaction_category.category_id = category.id WHERE transaction.account_id = :account_id')
+    param = {"account_id": account_id}
+    result_all_transactions = db.session.execute(sql_all_transactions, param)
+    all_transactions = result_all_transactions.fetchall()
 
-        query = text('SELECT * FROM "transaction" WHERE account_id = :account_id')
-        param ={"account_id": account_id}
+    filtered_expenses = all_transactions
 
-        if filter_form.filter_category.data:
-            query += text('AND id IN (SELECT transaction_id FROM "transaction_category" JOIN "category" ON transaction_category.category_id = category.id WHERE category.name = :filter_category)')
-            param["filter_category"] = filter_category
-        if filter_form.start_date.data:
-            query += text('AND timestamp >= :filter_start_date')
-            param["filter_start_date"] = filter_start_date
-        if filter_form.end_date.data:
-            query += text('AND timestamp <= :filter_end_date')
-            param["filter_end_date"] = filter_end_date
+    print("Request method:", request.method)
+    print("Form data:", request.form)
 
-        filter_results = db.session.execute(query, param)
-        filtered_expenses = filter_results.fetchall()
+    if request.method == "POST":
+        print("submit form")
+        if filter_form.validate_on_submit():
+            print("validate form")
+            filter_category = filter_form.filter_category.data
+            filter_start_date = filter_form.start_date.data
+            filter_end_date = filter_form.end_date.data
+
+            print(f"Start Date: {filter_start_date}")
+            print(f"End Date: {filter_end_date}")
+            print(f"Filter Category: {filter_category}")
+
+            query = sql_all_transactions
+            param ={"account_id": account_id}
+            print(query)
+            if filter_form.filter_category:
+                query += text('AND tc.category_id = :category_id')
+                param["filter_category"] = filter_category
+                print(query)
+            if filter_form.start_date:
+                query += text('AND timestamp >= :filter_start_date')
+                param["filter_start_date"] = filter_start_date
+                print(query)
+            if filter_form.end_date:
+                query += text('AND timestamp <= :filter_end_date')
+                param["filter_end_date"] = filter_end_date
+                print(query)
+            try:
+                print(query)
+                filter_results = db.session.execute(query, param)
+                filtered_expenses = filter_results.fetchall()
+            except Exception as e:
+                flash(f"Error filtering transactions: {str(e)}", "danger")
+        else:
+            print("Form validation failed.")
+            print(filter_form.errors)
 
     return render_template('account.html', account=account, spent_this_month=spent_this_month,
     form=add_expense_form, 
-    filter_form=filter_form, 
+    filter_form=filter_form,
+    all_transactions=all_transactions, 
     filtered_expenses=filtered_expenses)
 
 #TEST routes
@@ -290,3 +318,13 @@ def test_add_user():
     except Exception as e:
         db.session.rollback()
         return f"Error: {e}"
+
+@app.route("/check_categories")
+def check_categories():
+    try:
+        sql = text("SELECT * FROM category")
+        result = db.session.execute(sql)
+        categories = result.fetchall()
+        return jsonify([dict(row) for row in categories])
+    except Exception as e:
+        return str(e)

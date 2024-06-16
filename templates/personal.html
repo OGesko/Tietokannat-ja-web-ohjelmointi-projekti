@@ -11,7 +11,7 @@
             <ul class="list-group">
                 {% for account in accounts %}
                     <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <a href="{{ url_for('account', account_id=account.id) }}">{{ account.name }}: ${{ account.balance }}</a>
+                        <a href="{{ url_for('account', account_id=account.id) }}">{{ account.name }}: €{{ account.balance }}</a>
                     </li>
                 {% else %}
                     <li class="list-group-item">You have no accounts.</li>
