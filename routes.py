@@ -4,10 +4,11 @@ from flask import (
     redirect,
     flash,
     url_for,
-    session
+    session,
+    request
 )
 from sqlalchemy import text
-from datetime import timedelta
+from datetime import timedelta, datetime
 from sqlalchemy.exc import (
     IntegrityError,
     DataError,
@@ -16,7 +17,6 @@ from sqlalchemy.exc import (
     InvalidRequestError,
 )
 from werkzeug.routing import BuildError
-
 
 from flask_bcrypt import Bcrypt,generate_password_hash, check_password_hash
 
@@ -29,23 +29,57 @@ from flask_login import (
     login_required,
 )
 
-from app import create_app,db,login_manager,bcrypt
-from models import User, Account
-from forms import login_form, register_form, create_account_form
+from app import app, db,login_manager,bcrypt
+#from models import User, Account, Category, Transaction
+from forms import login_form, register_form, create_account_form, AddExpenseForm, FilterDataForm
+
+class User(UserMixin):
+    def __init__(self, id, username, pwd, admin):
+        self.id = id
+        self.username = username
+        self.pwd_hash = pwd
+        self.admin = admin
+
+    def get_id(self):
+        return str(self.id)
+    
+    @staticmethod
+    def set_password(password):
+        return bcrypt.generate_password_hash(password).decode('utf-8')
+    
+    def check_password(self, password):
+        return bcrypt.check_password_hash(self.pwd_hash, password)
+        
+    # Required by Flask-Login
+    @property
+    def is_active(self):
+        return True  # Implement your logic to determine if the user is active
+
+    @property
+    def is_authenticated(self):
+        return True  # Implement your logic to determine if the user is authenticated
+
+    @property
+    def is_anonymous(self):
+        return False  # Implement your logic to determine if the user is anonymous
 
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
-
-app = create_app()
+    sql = text('SELECT * FROM "user" WHERE id = :id')
+    result = db.session.execute(sql, {"id": user_id})
+    user = result.fetchone()
+    if user:
+        return User(user.id, user.username, user.pwd, user.admin)
+    else:
+        return None
 
 @app.before_request
 def session_handler():
     session.permanent = True
     app.permanent_session_lifetime = timedelta(minutes=10)
 
-@app.route("/", methods=("GET", "POST"), strict_slashes=False)
+@app.route("/")
 def index():
     return render_template("index.html",title="Home")
 
@@ -55,16 +89,22 @@ def login():
     form = login_form()
 
     if form.validate_on_submit():
-        try:
-            user = User.query.filter_by(username=form.username.data).first()
-            if user:
-                if check_password_hash(user.pwd, form.pwd.data):
-                    login_user(user)
-                    return redirect(url_for('personal'))
-                else:
-                    flash("Invalid Username or password!", "danger")
-        except Exception as e:
-            flash(e, "danger")
+        if request.method == "POST":
+            username = form.username.data
+            pwd = form.pwd.data
+            sql = text('SELECT * FROM "user" WHERE username = :username')
+            result = db.session.execute(sql, {"username": username})
+            user = result.fetchone()
+            try:
+                if user:
+                    if check_password_hash(user.pwd, pwd):
+                        user_obj = User(user.id, user.username, user.pwd, user.admin)
+                        login_user(user_obj)
+                        return redirect(url_for('personal'))
+                    else:
+                        flash("Invalid Username or password!", "danger")
+            except Exception as e:
+                flash(e, "danger")
 
     return render_template("auth.html",
         form=form,
@@ -77,17 +117,12 @@ def login():
 @app.route("/register/", methods=("GET", "POST"), strict_slashes=False)
 def register():
     form = register_form()
-    if form.validate_on_submit():
-        try:
-            pwd = form.pwd.data
-            username = form.username.data
-            
-            newuser = User(
-                username=username,
-                pwd=bcrypt.generate_password_hash(pwd).decode('utf-8'),
-            )
-    
-            db.session.add(newuser)
+    if form.validate_on_submit() and request.method == "POST":
+        pwd = generate_password_hash(form.pwd.data).decode('utf-8')
+        username = form.username.data
+        try:            
+            sql = text('INSERT INTO "user" (username, pwd) VALUES (:username, :pwd)')
+            db.session.execute(sql, {"username": username, "pwd": pwd})
             db.session.commit()
             flash(f"Account Succesfully created", "success")
             return redirect(url_for("login"))
@@ -103,10 +138,10 @@ def register():
             flash(f"Invalid Entry", "warning")
         except InterfaceError:
             db.session.rollback()
-            flash(f"Error connecting to the database", "danger")
+            flash(f"1. Error connecting to the database", "danger")
         except DatabaseError:
             db.session.rollback()
-            flash(f"Error connecting to the database", "danger")
+            flash(f"2. Error connecting to the database", "danger")
         except BuildError:
             db.session.rollback()
             flash(f"An error occured !", "danger")
@@ -126,26 +161,109 @@ def logout():
 @app.route("/personal")
 @login_required
 def personal():
-    accounts = Account.query.filter_by(user_id=current_user.id).all()
+    sql = text('SELECT * FROM "account" WHERE user_id = :user_id')
+    result = db.session.execute(sql, {"user_id": current_user.id})
+    accounts = result.fetchall()
     return render_template("personal.html", user=current_user, accounts=accounts)
 
 @app.route("/create_account", methods=("GET", "POST"))
 @login_required
 def create_account():
     form = create_account_form()
-    if form.validate_on_submit():
-        account = Account(
-            name=form.name.data,
-            balance=form.balance.data,
-            user_id=current_user.id  # Assign the account to the current user
-        )
-        db.session.add(account)
+    if form.validate_on_submit() and request.method == "POST":
+        name = form.name.data
+        balance = form.balance.data
+        user_id = current_user.id
+        sql = text('INSERT INTO "account" (name, balance, user_id) VALUES (:name, :balance, :user_id)')
+        db.session.execute(sql, {"name": name, "balance": balance, "user_id": user_id})
         db.session.commit()
         flash('Account created successfully!', 'success')
         return redirect(url_for('personal'))
     return render_template('create_account.html', form=form)
 
+@app.route("/account/<int:account_id>", methods=("GET", "POST"))
+@login_required
+def account(account_id):
+    sql = text('SELECT * FROM "account" WHERE id = :id')
+    result = db.session.execute(sql, {"id": account_id})
+    account = result.fetchone()
+    if account.user_id != current_user.id:
+        flash('You do not have access to this account.', 'danger')
+        return redirect(url_for('personal_page'))
 
+    add_expense_form = AddExpenseForm()    
+    filter_form = FilterDataForm()
+
+    categories_sql = text('SELECT id, name FROM "category"')
+    categories_result = db.session.execute(categories_sql)
+    categories = [(category.id, category.name) for category in categories_result.fetchall()]
+
+    add_expense_form.category.choices = categories
+    filter_form.filter_category.choices = categories
+
+    if request.method == 'POST' and add_expense_form.validate_on_submit():
+        description = add_expense_form.description.data
+        amount = float(add_expense_form.amount.data)
+        category_name = add_expense_form.category.data
+        recurring = 'recurring' in add_expense_form
+
+        category_sql = text('SELECT * FROM "category" WHERE name = :name')
+        category_result = db.session.execute(category_sql, {"name": category_name})
+        category = category_result.fetchone()
+
+        if not category:
+            insert_category_sql = text('INSERT INTO "category" (name) VALUES (:name) RETURNING id')
+            category_result = db.session.execute(insert_category_sql, {"name": category_name})
+            db.session.commit()
+            category = category_result.fetchone()
+
+        transaction_sql = text('INSERT INTO "transaction" (description, amount, timestamp, user_id, account_id, recurring) VALUES (:description, :amount, :timestamp, :user_id, :account_id, :recurring) RETURNING id')
+        result = db.session.execute(transaction_sql, {"description": description, "amount": amount, "timestamp": datetime.now(), "user_id": current_user.id, "account_id": account_id, "recurring": recurring})
+        db.session.commit()
+
+        transaction = result.fetchone()
+
+        transaction_category_sql = text('INSERT INTO "transaction_category" (transaction_id, category_id) VALUES (:transaction_id, :category_id)')
+        db.session.execute(transaction_category_sql, {
+            "transaction_id": transaction.id,
+            "category_id": category.id
+        })
+        db.session.commit()
+        flash('Expense added successfully!', 'success')
+        return redirect(url_for('account', account_id=account.id))
+    
+    #Calculate spent this month
+    transactions_sql = text('SELECT * FROM "transaction" WHERE account_id = :account_id AND EXTRACT(MONTH FROM timestamp) = :month')
+    transactions_result = db.session.execute(transactions_sql, {"account_id": account_id, "month": datetime.now().month})
+    transactions = transactions_result.fetchall()
+    spent_this_month = sum(t.amount for t in transactions)
+
+    filtered_expenses = None
+    if request.method == "POST" and filter_form.validate_on_submit():
+        filter_category = filter_form.filter_category
+        filter_start_date = filter_form.start_date
+        filter_end_date = filter_form.end_date
+
+        query = text('SELECT * FROM "transaction" WHERE account_id = :account_id')
+        param ={"account_id": account_id}
+
+        if filter_form.filter_category.data:
+            query += text('AND id IN (SELECT transaction_id FROM "transaction_category" JOIN "category" ON transaction_category.category_id = category.id WHERE category.name = :filter_category)')
+            param["filter_category"] = filter_category
+        if filter_form.start_date.data:
+            query += text('AND timestamp >= :filter_start_date')
+            param["filter_start_date"] = filter_start_date
+        if filter_form.end_date.data:
+            query += text('AND timestamp <= :filter_end_date')
+            param["filter_end_date"] = filter_end_date
+
+        filter_results = db.session.execute(query, param)
+        filtered_expenses = filter_results.fetchall()
+
+    return render_template('account.html', account=account, spent_this_month=spent_this_month,
+    form=add_expense_form, 
+    filter_form=filter_form, 
+    filtered_expenses=filtered_expenses)
 
 #TEST routes
 @app.route("/test_db")
@@ -172,6 +290,3 @@ def test_add_user():
     except Exception as e:
         db.session.rollback()
         return f"Error: {e}"
-
-if __name__ == "__main__":
-    app.run(debug=True)

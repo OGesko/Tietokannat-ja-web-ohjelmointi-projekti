@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %} {{title}} {% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Account Details</h1>
+
+    <!-- Account Balance and Spent This Month -->
+    <div class="mb-4">
+        <h2>Balance: ${{ account.balance }}</h2>
+        <h3>Spent This Month: ${{ spent_this_month }}</h3>
+    </div>
+
+    <!-- Add Expense Form -->
+    <div class="mb-4">
+        <h2>Add Expense</h2>
+        <form method="POST" action="{{ url_for('account', account_id=account.id) }}">
+            {{ form.hidden_tag() }}
+            <div class="mb-3">
+                <label for="description" class="form-label">Description</label>
+                {{ form.description(class="form-control") }}
+            </div>
+            <div class="mb-3">
+                <label for="category" class="form-label">Category</label>
+                {{ form.category(class="form-control") }}
+            </div>
+            <div class="mb-3">
+                <label for="new_category" class="form-label">New Category</label>
+                {{ form.new_category(class="form-control") }}
+            </div>
+            <div class="mb-3">
+                <label for="amount" class="form-label">Amount</label>
+                {{ form.amount(class="form-control") }}
+            </div>
+            <div class="form-check mb-3">
+                {{ form.recurring(class="form-check-input") }}
+                <label class="form-check-label" for="recurring">
+                    Recurring
+                </label>
+            </div>
+            <button type="submit" class="btn btn-primary">Add Expense</button>
+        </form>
+    </div>
+
+    <!-- Filter Data Form -->
+    <div class="mb-4">
+        <h2>Filter Data</h2>
+        <form method="GET" action="{{ url_for('account', account_id=account.id) }}">
+            <div class="mb-3">
+                <label for="start_date" class="form-label">Start Date</label>
+                {{ filter_form.start_date(class="form-control") }}
+            </div>
+            <div class="mb-3">
+                <label for="end_date" class="form-label">End Date</label>
+                {{ filter_form.end_date(class="form-control") }}
+            </div>
+            <div class="mb-3">
+                <label for="filter_category" class="form-label">Category</label>
+                {{ filter_form.filter_category(class="form-control") }}
+            </div>
+            <button type="submit" class="btn btn-primary">Filter</button>
+        </form>
+    </div>
+
+    <!-- Display Filtered Data -->
+    {% if filtered_expenses %}
+    <div class="mb-4">
+        <h2>Filtered Expenses</h2>
+        <ul class="list-group">
+            {% for expense in filtered_expenses %}
+            <li class="list-group-item">
+                {{ expense.description }} - ${{ expense.amount }} on {{ expense.timestamp.strftime('%Y-%m-%d') }}
+                (Category: {{ expense.category.name }})
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

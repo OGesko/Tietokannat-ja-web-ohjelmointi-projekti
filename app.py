@@ -6,27 +6,25 @@ from flask_migrate import Migrate
 from os import getenv
 from dotenv import load_dotenv
 
-login_manager = LoginManager()
+load_dotenv()
+
+app = Flask(__name__)
+
+app.secret_key = getenv('SECRET_KEY')
+app.config['SQLALCHEMY_DATABASE_URI'] = getenv('DATABASE_URL')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+login_manager = LoginManager(app)
 login_manager.session_protection = "strong"
 login_manager.login_view = "login"
 login_manager.login_message_category = "info"
 
-db = SQLAlchemy()
+db = SQLAlchemy(app)
 bcrypt = Bcrypt()
-migrate = Migrate()
+migrate = Migrate(app, db)
 
-load_dotenv()
+import routes
+#app.register_blueprint(main)
 
-def create_app():
-    app = Flask(__name__)
-
-    app.secret_key = getenv('SECRET_KEY')
-    app.config['SQLALCHEMY_DATABASE_URI'] = getenv('DATABASE_URL')
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
-
-    login_manager.init_app(app)
-    db.init_app(app)
-    migrate.init_app(app, db)
-    bcrypt.init_app(app)
-    
-    return app
+if __name__ == "__main__":
+    app.run(debug=True)
