@@ -47,6 +47,7 @@
     <div class="mb-4">
         <h2>Filter Data</h2>
         <form method="POST" action="{{ url_for('account', account_id=account.id) }}">
+            {{ filter_form.hidden_tag() }}
             <div class="mb-3">
                 <label for="start_date" class="form-label">Start Date</label>
                 {{ filter_form.start_date(class="form-control") }}
@@ -59,7 +60,7 @@
                 <label for="filter_category" class="form-label">Category</label>
                 {{ filter_form.filter_category(class="form-control") }}
             </div>
-            <button type="submit" class="btn btn-primary">Filter</button>
+            <button type="submit" class="btn btn-primary">Filter </button>
         </form>
     </div>
     <!-- Display Filtered Data -->
@@ -75,7 +76,7 @@
                 </tr>
             </thead>
             <tbody>
-                {% for transaction in filtered_transactions %}
+                {% for transaction in filtered_expenses %}
                     <tr>
                         <td>{{ transaction.description }}</td>
                         <td>{{ transaction.amount }}</td>

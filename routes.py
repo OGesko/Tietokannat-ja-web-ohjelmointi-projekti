@@ -80,6 +80,7 @@ def session_handler():
     session.permanent = True
     app.permanent_session_lifetime = timedelta(minutes=10)
 
+# routes for webapp
 @app.route("/")
 def index():
     return render_template("index.html",title="Home")
@@ -188,7 +189,8 @@ def account(account_id):
     sql = text('SELECT * FROM "account" WHERE id = :id')
     result = db.session.execute(sql, {"id": account_id})
     account = result.fetchone()
-    if account.user_id != current_user.id:
+
+    if not account or account.user_id != current_user.id:
         flash('You do not have access to this account.', 'danger')
         return redirect(url_for('personal_page'))
 
@@ -200,38 +202,55 @@ def account(account_id):
     categories = [(category.id, category.name) for category in categories_result.fetchall()]
 
     add_expense_form.category.choices = categories
-    filter_form.filter_category.choices = categories
+    filter_form.filter_category.choices = [('All Categories', 'All Categories')] + categories
 
     if request.method == 'POST' and add_expense_form.validate_on_submit():
         description = add_expense_form.description.data
         amount = float(add_expense_form.amount.data)
         category_name = add_expense_form.category.data
         new_category = add_expense_form.new_category.data
-        recurring = 'recurring' in add_expense_form
-
+        recurring = add_expense_form.recurring.data
+        
         category_sql = text('SELECT * FROM "category" WHERE name = :name')
-        category_result = db.session.execute(category_sql, {"name": category_name})
+        category_result = db.session.execute(category_sql, {"name": new_category})
         category = category_result.fetchone()
+        print(category)
 
         if not category and new_category:
+            print("inserting new cat")
             insert_category_sql = text('INSERT INTO "category" (name) VALUES (:name) RETURNING id')
             category_result = db.session.execute(insert_category_sql, {"name": new_category})
             db.session.commit()
             category = category_result.fetchone()
 
+        if not category:
+                flash('Error creating new category.', 'danger')
+                return redirect(url_for('account', account_id=account.id))
+        
+        category_id = category.id
+        
         transaction_sql = text('INSERT INTO "transaction" (description, amount, timestamp, user_id, account_id, recurring) VALUES (:description, :amount, :timestamp, :user_id, :account_id, :recurring) RETURNING id')
-        result = db.session.execute(transaction_sql, {"description": description, "amount": amount, "timestamp": datetime.now(), "user_id": current_user.id, "account_id": account_id, "recurring": recurring})
+        result = db.session.execute(transaction_sql, {
+            "description": description,
+            "amount": amount,
+            "timestamp": datetime.now(),
+            "user_id": current_user.id,
+            "account_id": account_id,
+            "recurring": recurring})
+        
         db.session.commit()
-
         transaction = result.fetchone()
 
-        transaction_category_sql = text('INSERT INTO "transaction_category" (transaction_id, category_id) VALUES (:transaction_id, :category_id)')
-        db.session.execute(transaction_category_sql, {
-            "transaction_id": transaction.id,
-            "category_id": category.id
-        })
-        db.session.commit()
-        flash('Expense added successfully!', 'success')
+        if transaction:
+            transaction_category_sql = text('INSERT INTO "transaction_category" (transaction_id, category_id) VALUES (:transaction_id, :category_id)')
+            db.session.execute(transaction_category_sql, {
+                "transaction_id": transaction.id,
+                "category_id": category_id
+            })
+            db.session.commit()
+            flash('Expense added successfully!', 'success')
+        else:
+            flash('Error adding transaction.', 'danger')
         return redirect(url_for('account', account_id=account.id))
     
     #Calculate spent this month
@@ -240,7 +259,12 @@ def account(account_id):
     transactions = transactions_result.fetchall()
     spent_this_month = sum(t.amount for t in transactions)
 
-    sql_all_transactions = text('SELECT transaction.*, category.name FROM transaction LEFT JOIN transaction_category ON transaction.id = transaction_category.transaction_id LEFT JOIN category ON transaction_category.category_id = category.id WHERE transaction.account_id = :account_id')
+    sql_all_transactions = text('''
+        SELECT transaction.*, category.name 
+        FROM transaction
+        LEFT JOIN transaction_category ON transaction.id = transaction_category.transaction_id 
+        LEFT JOIN category ON transaction_category.category_id = category.id 
+        WHERE transaction.account_id = :account_id''')
     param = {"account_id": account_id}
     result_all_transactions = db.session.execute(sql_all_transactions, param)
     all_transactions = result_all_transactions.fetchall()
@@ -262,36 +286,43 @@ def account(account_id):
             print(f"End Date: {filter_end_date}")
             print(f"Filter Category: {filter_category}")
 
-            query = sql_all_transactions
+            query = '''
+                SELECT transaction.*, category.name
+                FROM "transaction"
+                LEFT JOIN "transaction_category" ON transaction.id = transaction_category.transaction_id
+                LEFT JOIN "category" ON transaction_category.category_id = category.id
+                WHERE transaction.account_id = :account_id'''
             param ={"account_id": account_id}
             print(query)
-            if filter_form.filter_category:
-                query += text('AND tc.category_id = :category_id')
+            if filter_form.filter_category.data != 'All Categories':
+                query = f'{query} AND transaction_category.category_id = :category_id'
                 param["filter_category"] = filter_category
                 print(query)
-            if filter_form.start_date:
-                query += text('AND timestamp >= :filter_start_date')
+            if filter_form.start_date.data:
+                query = f'{query} AND transaction.timestamp >= :filter_start_date'
                 param["filter_start_date"] = filter_start_date
                 print(query)
-            if filter_form.end_date:
-                query += text('AND timestamp <= :filter_end_date')
+            if filter_form.end_date.data:
+                query = f'{query} AND transaction.timestamp <= :filter_end_date'
                 param["filter_end_date"] = filter_end_date
                 print(query)
             try:
-                print(query)
-                filter_results = db.session.execute(query, param)
+                print(query + "\nfil done")
+                filter_results = db.session.execute(text(query), param)
                 filtered_expenses = filter_results.fetchall()
             except Exception as e:
+                print("error filtering")
+                print(f"Exception: {str(e)}")
                 flash(f"Error filtering transactions: {str(e)}", "danger")
         else:
             print("Form validation failed.")
             print(filter_form.errors)
 
-    return render_template('account.html', account=account, spent_this_month=spent_this_month,
-    form=add_expense_form, 
-    filter_form=filter_form,
-    all_transactions=all_transactions, 
-    filtered_expenses=filtered_expenses)
+    return render_template('account.html', 
+        account=account, 
+        spent_this_month=spent_this_month,    form=add_expense_form,
+        filter_form=filter_form,
+        all_transactions=all_transactions,filtered_expenses=filtered_expenses)
 
 #TEST routes
 @app.route("/test_db")

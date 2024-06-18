@@ -11,7 +11,7 @@ from wtforms import (
     SubmitField,
     SelectField,
 )
-from wtforms.validators import InputRequired, Length, EqualTo, DataRequired, Regexp, NumberRange
+from wtforms.validators import InputRequired, Length, EqualTo, DataRequired, Regexp, NumberRange, Optional
 from flask_wtf import FlaskForm
 from app import db
 
@@ -54,16 +54,16 @@ class create_account_form(FlaskForm):
 
 class AddExpenseForm(FlaskForm):
     description = StringField('Description', validators=[DataRequired()])
-    category = SelectField('Category')
-    new_category = StringField('Or Name New Category')
+    category = SelectField('Category', validators=[Optional()])
+    new_category = StringField('Or Name New Category', validators=[Optional()])
     amount = FloatField('Amount', validators=[DataRequired(), NumberRange(min=0)])
-    recurring = BooleanField('Recurring')
+    recurring = BooleanField('Recurring', validators=[Optional()])
     submit = SubmitField('Add Expense')
 
 class FilterDataForm(FlaskForm):
-    start_date = DateField('Start Date', format='%Y-%m-%d', validators=[DataRequired()])
-    end_date = DateField('End Date', format='%Y-%m-%d', validators=[DataRequired()])
-    filter_category = SelectField('Category', validators=[DataRequired()])
+    start_date = DateField('Start Date', format='%Y-%m-%d', validators=[Optional()])
+    end_date = DateField('End Date', format='%Y-%m-%d', validators=[Optional()])
+    filter_category = SelectField('Category', validators=[Optional()])
     submit = SubmitField('Search')
 
     def __init__(self, *args, **kwargs):
