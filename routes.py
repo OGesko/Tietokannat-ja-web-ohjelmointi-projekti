@@ -27,7 +27,7 @@ from flask_login import (
     current_user,
     logout_user,
     login_required,
-)
+    )
 
 from app import app, db,login_manager,bcrypt
 from forms import (
@@ -37,6 +37,13 @@ from forms import (
     AddExpenseForm,
     FilterDataForm
     )
+
+from utils import (
+    check_balance,
+    calculate_spent_this_month
+    )
+
+app.config['DEBUG'] = True
 
 class User(UserMixin):
     def __init__(self, id, username, pwd, admin):
@@ -62,8 +69,9 @@ class User(UserMixin):
 
     @property
     def is_authenticated(self):
-        return True  # Implement your logic to determine if the user is authenticated
-
+        #if self.admin is True:
+        #    return True
+        return True
     @property
     def is_anonymous(self):
         return False  # Implement your logic to determine if the user is anonymous
@@ -224,7 +232,7 @@ def account(account_id):
     if request.method == 'POST' and add_expense_form.validate_on_submit():
         description = add_expense_form.description.data
         amount = float(add_expense_form.amount.data)
-        category_name = add_expense_form.category.data
+        #category_name = add_expense_form.category.data
         new_category = add_expense_form.new_category.data
         recurring = add_expense_form.recurring.data
 
@@ -278,16 +286,7 @@ def account(account_id):
         return redirect(url_for('account', account_id=account.id))
 
     #Calculate spent this month
-    transactions_sql = text('''
-        SELECT * FROM "transaction"
-        WHERE account_id = :account_id
-        AND EXTRACT(MONTH FROM timestamp) = :month
-        ''')
-    transactions_result = db.session.execute(transactions_sql,
-    {"account_id": account_id, "month": datetime.now().month})
-
-    transactions = transactions_result.fetchall()
-    spent_this_month = sum(t.amount for t in transactions)
+    spent_this_month = calculate_spent_this_month(account_id)
 
     sql_all_transactions = text('''
         SELECT transaction.*, category.name 
@@ -301,6 +300,9 @@ def account(account_id):
     all_transactions = result_all_transactions.fetchall()
 
     filtered_expenses = all_transactions
+
+        # Check balance warning
+    balance_warning = check_balance(account.balance)
 
     print("Request method:", request.method)
     print("Form data:", request.form)
@@ -326,9 +328,10 @@ def account(account_id):
                 '''
             param ={"account_id": account_id}
             print(query)
+
             if filter_form.filter_category.data != 'All Categories':
                 query = f'{query} AND transaction_category.category_id = :category_id'
-                param["filter_category"] = filter_category
+                param["category_id"] = filter_category
                 print(query)
             if filter_form.start_date.data:
                 query = f'{query} AND transaction.timestamp >= :filter_start_date'
@@ -354,7 +357,8 @@ def account(account_id):
         account=account, 
         spent_this_month=spent_this_month,    form=add_expense_form,
         filter_form=filter_form,
-        all_transactions=all_transactions,filtered_expenses=filtered_expenses)
+        all_transactions=all_transactions,filtered_expenses=filtered_expenses,
+        balance_warning=balance_warning)
 
 #TEST routes
 @app.route("/test_db")

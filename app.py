@@ -14,6 +14,7 @@ csrf = CSRFProtect(app)
 app.secret_key = getenv('SECRET_KEY')
 app.config['SQLALCHEMY_DATABASE_URI'] = getenv('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['DEBUG'] = True
 
 login_manager = LoginManager(app)
 login_manager.session_protection = "strong"
