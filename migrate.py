@@ -1,13 +1,9 @@
-from flask import Flask
-from flask_migrate import Migrate
-from flask_sqlalchemy import SQLAlchemy
+import os
+import psycopg2
+
 from dotenv import load_dotenv
 
 load_dotenv()
-
-import psycopg2
-from psycopg2 import sql
-import os
 
 DB_URL = os.getenv("DATABASE_URL")
 

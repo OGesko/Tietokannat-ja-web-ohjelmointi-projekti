@@ -1,25 +1,36 @@
+"""Defining the forms used on website"""
 from sqlalchemy import text
 from wtforms import (
     StringField,
     PasswordField,
     BooleanField,
-    IntegerField,
     DateField,
-    TextAreaField,
     ValidationError,
     FloatField,
     SubmitField,
     SelectField,
 )
-from wtforms.validators import InputRequired, Length, EqualTo, DataRequired, Regexp, NumberRange, Optional
+from wtforms.validators import (
+    InputRequired,
+    Length,
+    EqualTo,
+    DataRequired,
+    Regexp,
+    NumberRange,
+    Optional
+    )
 from flask_wtf import FlaskForm
 from app import db
 
 class login_form(FlaskForm):
+    """Login form for returning users"""
+
     username = StringField(validators=[InputRequired()])
     pwd = PasswordField(validators=[InputRequired(), Length(min=8, max=72)])
 
 class register_form(FlaskForm):
+    """Registering form for new users"""
+
     username = StringField(
         validators=[
             InputRequired(),
@@ -27,7 +38,7 @@ class register_form(FlaskForm):
             Regexp(
                 "^[A-Za-z][A-Za-z0-9_.]*$",
                 0,
-                "Usernames must have only letters, " "numbers, dots or underscores",
+                "Usernames must have only letters, numbers, dots or underscores",
             ),
         ]
     )
@@ -40,19 +51,25 @@ class register_form(FlaskForm):
         ]
     )
     def validate_username(self, username):
+        """Check that username is not already taken"""
+
         sql = text('SELECT id FROM "user" WHERE username = :username')
         print(f"sql q {sql}")
         result = db.session.execute(sql, {"username": username.data})
         user = result.fetchone()
         if user:
             raise ValidationError("Username already taken!")
-        
+
 class create_account_form(FlaskForm):
+    """Creating new account for user"""
+
     name = StringField('Account Name', validators=[DataRequired()])
     balance = FloatField('Initial Balance', validators=[DataRequired()])
     submit = SubmitField('Create Account')
 
 class AddExpenseForm(FlaskForm):
+    """Adding new expence for account"""
+
     description = StringField('Description', validators=[DataRequired()])
     category = SelectField('Category', validators=[Optional()])
     new_category = StringField('Or Name New Category', validators=[Optional()])
@@ -61,6 +78,8 @@ class AddExpenseForm(FlaskForm):
     submit = SubmitField('Add Expense')
 
 class FilterDataForm(FlaskForm):
+    """Search expences from timeframe and/or category"""
+
     start_date = DateField('Start Date', format='%Y-%m-%d', validators=[Optional()])
     end_date = DateField('End Date', format='%Y-%m-%d', validators=[Optional()])
     filter_category = SelectField('Category', validators=[Optional()])

@@ -1,5 +1,6 @@
+"""Routes for the website"""
+from datetime import timedelta, datetime
 from flask import (
-    Flask,
     jsonify,
     render_template,
     redirect,
@@ -9,7 +10,6 @@ from flask import (
     request
 )
 from sqlalchemy import text
-from datetime import timedelta, datetime
 from sqlalchemy.exc import (
     IntegrityError,
     DataError,
@@ -19,20 +19,24 @@ from sqlalchemy.exc import (
 )
 from werkzeug.routing import BuildError
 
-from flask_bcrypt import Bcrypt,generate_password_hash, check_password_hash
+from flask_bcrypt import generate_password_hash, check_password_hash
 
 from flask_login import (
     UserMixin,
     login_user,
-    LoginManager,
     current_user,
     logout_user,
     login_required,
 )
 
 from app import app, db,login_manager,bcrypt
-#from models import User, Account, Category, Transaction
-from forms import login_form, register_form, create_account_form, AddExpenseForm, FilterDataForm
+from forms import (
+    login_form,
+    register_form,
+    create_account_form,
+    AddExpenseForm,
+    FilterDataForm
+    )
 
 class User(UserMixin):
     def __init__(self, id, username, pwd, admin):
@@ -43,14 +47,14 @@ class User(UserMixin):
 
     def get_id(self):
         return str(self.id)
-    
+
     @staticmethod
     def set_password(password):
         return bcrypt.generate_password_hash(password).decode('utf-8')
-    
+
     def check_password(self, password):
         return bcrypt.check_password_hash(self.pwd_hash, password)
-        
+
     # Required by Flask-Login
     @property
     def is_active(self):
@@ -64,16 +68,16 @@ class User(UserMixin):
     def is_anonymous(self):
         return False  # Implement your logic to determine if the user is anonymous
 
-
 @login_manager.user_loader
 def load_user(user_id):
+    """loading user info from database"""
+
     sql = text('SELECT * FROM "user" WHERE id = :id')
     result = db.session.execute(sql, {"id": user_id})
     user = result.fetchone()
     if user:
         return User(user.id, user.username, user.pwd, user.admin)
-    else:
-        return None
+    return None
 
 @app.before_request
 def session_handler():
@@ -83,11 +87,14 @@ def session_handler():
 # routes for webapp
 @app.route("/")
 def index():
-    return render_template("index.html",title="Home")
+    """Landing page"""
 
+    return render_template("index.html",title="Home")
 
 @app.route("/login/", methods=("GET", "POST"), strict_slashes=False)
 def login():
+    """Handling login form"""
+
     form = login_form()
 
     if form.validate_on_submit():
@@ -103,8 +110,7 @@ def login():
                         user_obj = User(user.id, user.username, user.pwd, user.admin)
                         login_user(user_obj)
                         return redirect(url_for('personal'))
-                    else:
-                        flash("Invalid Username or password!", "danger")
+                    flash("Invalid Username or password!", "danger")
             except Exception as e:
                 flash(e, "danger")
 
@@ -118,35 +124,37 @@ def login():
 # Register route
 @app.route("/register/", methods=("GET", "POST"), strict_slashes=False)
 def register():
+    """Handling registering new users"""
+
     form = register_form()
     if form.validate_on_submit() and request.method == "POST":
         pwd = generate_password_hash(form.pwd.data).decode('utf-8')
         username = form.username.data
-        try:            
+        try:
             sql = text('INSERT INTO "user" (username, pwd) VALUES (:username, :pwd)')
             db.session.execute(sql, {"username": username, "pwd": pwd})
             db.session.commit()
-            flash(f"Account Succesfully created", "success")
+            flash("Account Succesfully created", "success")
             return redirect(url_for("login"))
 
         except InvalidRequestError:
             db.session.rollback()
-            flash(f"Something went wrong!", "danger")
+            flash("Something went wrong!", "danger")
         except IntegrityError:
             db.session.rollback()
-            flash(f"User already exists!.", "warning")
+            flash("User already exists!.", "warning")
         except DataError:
             db.session.rollback()
-            flash(f"Invalid Entry", "warning")
+            flash("Invalid Entry", "warning")
         except InterfaceError:
             db.session.rollback()
-            flash(f"1. Error connecting to the database", "danger")
+            flash("1. Error connecting to the database", "danger")
         except DatabaseError:
             db.session.rollback()
-            flash(f"2. Error connecting to the database", "danger")
+            flash("2. Error connecting to the database", "danger")
         except BuildError:
             db.session.rollback()
-            flash(f"An error occured !", "danger")
+            flash("An error occured !", "danger")
     return render_template("auth.html",
         form=form,
         text="Create account",
@@ -163,6 +171,8 @@ def logout():
 @app.route("/personal")
 @login_required
 def personal():
+    """User page"""
+
     sql = text('SELECT * FROM "account" WHERE user_id = :user_id')
     result = db.session.execute(sql, {"user_id": current_user.id})
     accounts = result.fetchall()
@@ -171,12 +181,17 @@ def personal():
 @app.route("/create_account", methods=("GET", "POST"))
 @login_required
 def create_account():
+    """Creating new "bank" account for user"""
+
     form = create_account_form()
     if form.validate_on_submit() and request.method == "POST":
         name = form.name.data
         balance = form.balance.data
         user_id = current_user.id
-        sql = text('INSERT INTO "account" (name, balance, user_id) VALUES (:name, :balance, :user_id)')
+        sql = text('''
+            INSERT INTO "account" (name, balance, user_id)
+            VALUES (:name, :balance, :user_id)
+            ''')
         db.session.execute(sql, {"name": name, "balance": balance, "user_id": user_id})
         db.session.commit()
         flash('Account created successfully!', 'success')
@@ -186,6 +201,8 @@ def create_account():
 @app.route("/account/<int:account_id>", methods=("GET", "POST"))
 @login_required
 def account(account_id):
+    """account page"""
+
     sql = text('SELECT * FROM "account" WHERE id = :id')
     result = db.session.execute(sql, {"id": account_id})
     account = result.fetchone()
@@ -194,7 +211,7 @@ def account(account_id):
         flash('You do not have access to this account.', 'danger')
         return redirect(url_for('personal_page'))
 
-    add_expense_form = AddExpenseForm()    
+    add_expense_form = AddExpenseForm()
     filter_form = FilterDataForm()
 
     categories_sql = text('SELECT id, name FROM "category"')
@@ -210,7 +227,7 @@ def account(account_id):
         category_name = add_expense_form.category.data
         new_category = add_expense_form.new_category.data
         recurring = add_expense_form.recurring.data
-        
+
         category_sql = text('SELECT * FROM "category" WHERE name = :name')
         category_result = db.session.execute(category_sql, {"name": new_category})
         category = category_result.fetchone()
@@ -224,12 +241,16 @@ def account(account_id):
             category = category_result.fetchone()
 
         if not category:
-                flash('Error creating new category.', 'danger')
-                return redirect(url_for('account', account_id=account.id))
-        
+            flash('Error creating new category.', 'danger')
+            return redirect(url_for('account', account_id=account.id))
+
         category_id = category.id
-        
-        transaction_sql = text('INSERT INTO "transaction" (description, amount, timestamp, user_id, account_id, recurring) VALUES (:description, :amount, :timestamp, :user_id, :account_id, :recurring) RETURNING id')
+
+        transaction_sql = text('''
+            INSERT INTO "transaction" (description, amount, timestamp, user_id, account_id, recurring)
+            VALUES (:description, :amount, :timestamp, :user_id, :account_id, :recurring)
+            RETURNING id
+            ''')
         result = db.session.execute(transaction_sql, {
             "description": description,
             "amount": amount,
@@ -237,12 +258,15 @@ def account(account_id):
             "user_id": current_user.id,
             "account_id": account_id,
             "recurring": recurring})
-        
+
         db.session.commit()
         transaction = result.fetchone()
 
         if transaction:
-            transaction_category_sql = text('INSERT INTO "transaction_category" (transaction_id, category_id) VALUES (:transaction_id, :category_id)')
+            transaction_category_sql = text('''
+                INSERT INTO "transaction_category" (transaction_id, category_id)
+                VALUES (:transaction_id, :category_id)
+                ''')
             db.session.execute(transaction_category_sql, {
                 "transaction_id": transaction.id,
                 "category_id": category_id
@@ -252,10 +276,16 @@ def account(account_id):
         else:
             flash('Error adding transaction.', 'danger')
         return redirect(url_for('account', account_id=account.id))
-    
+
     #Calculate spent this month
-    transactions_sql = text('SELECT * FROM "transaction" WHERE account_id = :account_id AND EXTRACT(MONTH FROM timestamp) = :month')
-    transactions_result = db.session.execute(transactions_sql, {"account_id": account_id, "month": datetime.now().month})
+    transactions_sql = text('''
+        SELECT * FROM "transaction"
+        WHERE account_id = :account_id
+        AND EXTRACT(MONTH FROM timestamp) = :month
+        ''')
+    transactions_result = db.session.execute(transactions_sql,
+    {"account_id": account_id, "month": datetime.now().month})
+
     transactions = transactions_result.fetchall()
     spent_this_month = sum(t.amount for t in transactions)
 
@@ -264,7 +294,8 @@ def account(account_id):
         FROM transaction
         LEFT JOIN transaction_category ON transaction.id = transaction_category.transaction_id 
         LEFT JOIN category ON transaction_category.category_id = category.id 
-        WHERE transaction.account_id = :account_id''')
+        WHERE transaction.account_id = :account_id
+        ''')
     param = {"account_id": account_id}
     result_all_transactions = db.session.execute(sql_all_transactions, param)
     all_transactions = result_all_transactions.fetchall()
@@ -291,7 +322,8 @@ def account(account_id):
                 FROM "transaction"
                 LEFT JOIN "transaction_category" ON transaction.id = transaction_category.transaction_id
                 LEFT JOIN "category" ON transaction_category.category_id = category.id
-                WHERE transaction.account_id = :account_id'''
+                WHERE transaction.account_id = :account_id
+                '''
             param ={"account_id": account_id}
             print(query)
             if filter_form.filter_category.data != 'All Categories':
@@ -332,7 +364,7 @@ def test_db():
         return "Database connection is working."
     except Exception as e:
         return str(e)
-    
+
 @app.route("/check_tables")
 def check_tables():
     inspector = db.inspect(db.engine)

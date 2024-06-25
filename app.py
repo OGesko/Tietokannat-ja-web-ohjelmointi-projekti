@@ -1,9 +1,9 @@
-from flask import Flask, redirect, render_template, request
+from os import getenv
+from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, UserMixin, login_user, current_user, logout_user, login_required
+from flask_login import LoginManager
 from flask_bcrypt import Bcrypt
 from flask_migrate import Migrate
-from os import getenv
 from dotenv import load_dotenv
 from flask_wtf import CSRFProtect
 
