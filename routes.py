@@ -40,7 +40,8 @@ from forms import (
 
 from utils import (
     check_balance,
-    calculate_spent_this_month
+    calculate_spent_this_month,
+    calculate_balance
     )
 
 app.config['DEBUG'] = True
@@ -184,7 +185,16 @@ def personal():
     sql = text('SELECT * FROM "account" WHERE user_id = :user_id')
     result = db.session.execute(sql, {"user_id": current_user.id})
     accounts = result.fetchall()
-    return render_template("personal.html", user=current_user, accounts=accounts)
+    accounts_with_balance = []
+    for acc in accounts:
+        balance = calculate_balance(acc.id)
+        accounts_with_balance.append({
+            "id": acc.id,
+            "name": acc.name,
+            "balance": balance
+        })
+
+    return render_template("personal.html", user=current_user, accounts=accounts_with_balance)
 
 @app.route("/create_account", methods=("GET", "POST"))
 @login_required
@@ -287,6 +297,7 @@ def account(account_id):
 
     #Calculate spent this month
     spent_this_month = calculate_spent_this_month(account_id)
+    balance = calculate_balance(account_id)
 
     sql_all_transactions = text('''
         SELECT transaction.*, category.name 
@@ -353,8 +364,9 @@ def account(account_id):
             print("Form validation failed.")
             print(filter_form.errors)
 
-    return render_template('account.html', 
-        account=account, 
+    return render_template('account.html',
+        account=account,
+        balance=balance,
         spent_this_month=spent_this_month,    form=add_expense_form,
         filter_form=filter_form,
         all_transactions=all_transactions,filtered_expenses=filtered_expenses,

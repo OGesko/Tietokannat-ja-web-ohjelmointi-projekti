@@ -8,7 +8,10 @@
 
     <!-- Account Balance and Spent This Month -->
     <div class="mb-4">
-        <h2>Balance: ${{ account.balance }}</h2>
+        <h2>Balance: {{ balance }}€</h2>
+        {% if warning %}
+            <div class="alert alert-warning">Warning: Your balance is low!</div>
+        {% endif %}
         <h3>Spent This Month: ${{ spent_this_month }}</h3>
     </div>
 
