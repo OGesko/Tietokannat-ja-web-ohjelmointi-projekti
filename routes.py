@@ -42,7 +42,9 @@ from forms import (
 from utils import (
     check_balance,
     calculate_spent_this_month,
-    calculate_balance
+    calculate_balance,
+    get_total_transactions,
+    average_monthly_spending
     )
 
 app.config['DEBUG'] = True
@@ -195,7 +197,11 @@ def personal():
             "balance": balance
         })
 
-    return render_template("personal.html", user=current_user, accounts=accounts_with_balance)
+    return render_template("personal.html",
+        user=current_user,
+        accounts=accounts_with_balance,
+        average_monthly_spending=average_monthly_spending,
+        get_total_transactions=get_total_transactions)
 
 @app.route("/create_account", methods=("GET", "POST"))
 @login_required
@@ -390,7 +396,9 @@ def admin():
         users=users,
         calculate_spent_this_month=calculate_spent_this_month,
         calculate_balance=calculate_balance,
-        check_balance=check_balance)
+        check_balance=check_balance,
+        get_total_transactions=get_total_transactions,
+        average_monthly_spending=average_monthly_spending)
 
 @app.route('/admin/delete_user/<int:user_id>', methods=['POST'])
 @login_required

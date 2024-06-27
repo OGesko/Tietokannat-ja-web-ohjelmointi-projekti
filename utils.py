@@ -43,3 +43,23 @@ def calculate_spent_this_month(account_id):
     spent_this_month = sum(t.amount for t in transactions)
 
     return spent_this_month
+
+def get_total_transactions(user_id):
+    total_transactions_sql = text('''
+        SELECT COUNT(id) AS total_transactions
+        FROM "transaction"
+        WHERE user_id = :user_id
+    ''')
+    result = db.session.execute(total_transactions_sql, {"user_id": user_id}).scalar()
+    return result or 0
+
+def average_monthly_spending(user_id):
+    average_monthly_spending_sql = text('''
+        SELECT AVG(amount) AS avg_monthly_spending
+        FROM "transaction"
+        WHERE user_id = :user_id
+        AND EXTRACT(MONTH FROM timestamp) = :current_month
+    ''')
+    current_month = datetime.now().month
+    result = db.session.execute(average_monthly_spending_sql, {"user_id": user_id, "current_month": current_month}).scalar()
+    return result or 0
