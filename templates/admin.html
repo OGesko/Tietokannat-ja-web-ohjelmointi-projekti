@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Admin{% endblock %}
+
+{% block content %}
+<h1>Admin Dashboard</h1>
+<h2>Users</h2>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Username</th>
+            <th>Admin</th>
+            <th>Total Spent This Month</th>
+            <th>Balance</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for user in users %}
+        <tr>
+            <td>{{ user.username }}</td>
+            <td>{{ 'Yes' if user.admin else 'No' }}</td>
+            <td>{{ calculate_spent_this_month(user.id) }} €</td>
+            <td>{{ calculate_balance(user.id) }} €</td>
+            <td>{{ check_balance(calculate_balance(user.id)) }}</td>
+            <td>
+                <form action="{{ url_for('delete_user', user_id=user.id) }}" method="post" style="display:inline-block;">
+                    {{ delete_user_form.hidden_tag() }}
+                    {{ delete_user_form.submit(class="btn btn-danger btn-sm", onclick="return confirm('Are you sure you want to delete this user?');") }}
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
