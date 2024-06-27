@@ -35,7 +35,8 @@ from forms import (
     register_form,
     create_account_form,
     AddExpenseForm,
-    FilterDataForm
+    FilterDataForm,
+    DeleteUserForm
     )
 
 from utils import (
@@ -371,6 +372,52 @@ def account(account_id):
         filter_form=filter_form,
         all_transactions=all_transactions,filtered_expenses=filtered_expenses,
         balance_warning=balance_warning)
+
+@app.route('/admin')
+@login_required
+def admin():
+    if not current_user.admin:
+        flash("You are not authorized to access this page.", "danger")
+        return redirect(url_for('index'))
+
+    users_sql = text('SELECT * FROM "user"')
+    users = db.session.execute(users_sql).fetchall()
+
+    delete_user_form = DeleteUserForm()
+
+    return render_template('admin.html',
+        delete_user_form=delete_user_form,
+        users=users,
+        calculate_spent_this_month=calculate_spent_this_month,
+        calculate_balance=calculate_balance,
+        check_balance=check_balance)
+
+@app.route('/admin/delete_user/<int:user_id>', methods=['POST'])
+@login_required
+def delete_user(user_id):
+    if not current_user.admin:
+        flash("You are not authorized to perform this action.", "danger")
+        return redirect(url_for('index'))
+
+    user_sql = text('SELECT * FROM "user" WHERE id = :user_id')
+    user = db.session.execute(user_sql, {"user_id": user_id}).fetchone()
+
+    try:
+        if user:
+            sql_delete_transaction = text('DELETE FROM "transaction" WHERE user_id = :user_id')
+            db.session.execute(sql_delete_transaction, {'user_id': user_id})
+            sql_delete_account = text('DELETE FROM "account" WHERE user_id = :user_id')
+            db.session.execute(sql_delete_account, {'user_id': user_id})
+            sql_delete_user = text('DELETE FROM "user" WHERE id = :user_id')
+            db.session.execute(sql_delete_user, {'user_id': user_id})
+            db.session.commit()
+
+        flash("User deleted successfully.", "success")
+    except Exception as e:
+        flash(f"An error occurred: {e}", "danger")
+        db.session.rollback()
+
+    return redirect(url_for('admin'))
 
 #TEST routes
 @app.route("/test_db")

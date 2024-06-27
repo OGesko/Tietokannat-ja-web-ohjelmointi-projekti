@@ -90,3 +90,6 @@ class FilterDataForm(FlaskForm):
         sql = text("SELECT id, name FROM category")
         categories = db.session.execute(sql).fetchall()
         self.filter_category.choices = [(c.id, c.name) for c in categories]
+
+class DeleteUserForm(FlaskForm):
+    submit = SubmitField('Delete')
