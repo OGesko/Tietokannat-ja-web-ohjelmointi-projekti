@@ -93,3 +93,6 @@ class FilterDataForm(FlaskForm):
 
 class DeleteUserForm(FlaskForm):
     submit = SubmitField('Delete')
+
+class DeleteAccountForm(FlaskForm):
+    submit = SubmitField('Delete Account')

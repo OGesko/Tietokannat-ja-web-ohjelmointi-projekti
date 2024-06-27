@@ -36,7 +36,8 @@ from forms import (
     create_account_form,
     AddExpenseForm,
     FilterDataForm,
-    DeleteUserForm
+    DeleteUserForm,
+    DeleteAccountForm
     )
 
 from utils import (
@@ -223,6 +224,28 @@ def create_account():
         return redirect(url_for('personal'))
     return render_template('create_account.html', form=form)
 
+@app.route('/delete_account/<int:account_id>', methods=['POST'])
+@login_required
+def delete_account(account_id):
+    form = DeleteAccountForm()
+    if form.validate_on_submit():
+        try:
+            # Delete all transactions for the account
+            delete_transactions_sql = text('DELETE FROM "transaction" WHERE account_id = :account_id')
+            db.session.execute(delete_transactions_sql, {'account_id': account_id})
+
+            # Delete the account
+            delete_account_sql = text('DELETE FROM "account" WHERE id = :account_id')
+            db.session.execute(delete_account_sql, {'account_id': account_id})
+
+            db.session.commit()
+            flash('Account deleted successfully.', 'success')
+            return redirect(url_for('personal'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'An error occurred: {e}', 'danger')
+    return redirect(url_for('account', account_id=account_id))
+
 @app.route("/account/<int:account_id>", methods=("GET", "POST"))
 @login_required
 def account(account_id):
@@ -238,6 +261,7 @@ def account(account_id):
 
     add_expense_form = AddExpenseForm()
     filter_form = FilterDataForm()
+    delete_account_form = DeleteAccountForm()
 
     categories_sql = text('SELECT id, name FROM "category"')
     categories_result = db.session.execute(categories_sql)
@@ -377,7 +401,8 @@ def account(account_id):
         spent_this_month=spent_this_month,    form=add_expense_form,
         filter_form=filter_form,
         all_transactions=all_transactions,filtered_expenses=filtered_expenses,
-        balance_warning=balance_warning)
+        balance_warning=balance_warning,
+        delete_account_form=delete_account_form)
 
 @app.route('/admin')
 @login_required
