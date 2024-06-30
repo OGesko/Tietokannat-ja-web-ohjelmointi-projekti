@@ -1,7 +1,11 @@
 """functions for the webapp"""
 from datetime import datetime
 from sqlalchemy import text
-from app import db
+from app import db, bcrypt
+#from flask_bcrypt import generate_password_hash
+
+def hash_password(password):
+    return bcrypt.generate_password_hash(password).decode('utf-8')
 
 def check_balance(balance, warning_threshold=50.0):
     """Check if the balance is nearing zero and return a warning message."""

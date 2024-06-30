@@ -29,7 +29,7 @@ from flask_login import (
     login_required,
     )
 
-from app import app, db,login_manager,bcrypt
+from app import app, db, login_manager, bcrypt
 from forms import (
     login_form,
     register_form,
@@ -60,9 +60,9 @@ class User(UserMixin):
     def get_id(self):
         return str(self.id)
 
-    @staticmethod
-    def set_password(password):
-        return bcrypt.generate_password_hash(password).decode('utf-8')
+    #@staticmethod
+    #def set_password(password):
+    #    return bcrypt.generate_password_hash(password).decode('utf-8')
 
     def check_password(self, password):
         return bcrypt.check_password_hash(self.pwd_hash, password)
@@ -139,9 +139,11 @@ def login():
 def register():
     """Handling registering new users"""
 
+    from utils import hash_password
+    
     form = register_form()
     if form.validate_on_submit() and request.method == "POST":
-        pwd = generate_password_hash(form.pwd.data).decode('utf-8')
+        pwd = hash_password(form.pwd.data)
         username = form.username.data
         try:
             sql = text('INSERT INTO "user" (username, pwd) VALUES (:username, :pwd)')
