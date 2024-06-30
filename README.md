@@ -23,11 +23,6 @@
 	-averages
 	-summaries
 
-### Now working
-- database connection
-- registering new users
-- login
-- logout
 
 ### Setup Instructions
 
